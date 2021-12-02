@@ -1,0 +1,31 @@
+cff-version: 1.2.0
+title: Image Segmentation
+message: >-
+  If you use this project, please cite it using the
+  metadata from this file.
+type: project
+authors:
+  - given-names: Salim
+    family-names: Fares
+    email: salim.fares@protonmail.com
+    affiliation: Universität Passau
+    orcid: 'https://orcid\.org/0000-0002-6815-2145'
+  - given-names: Douglas D
+    family-names: Abgeve
+    email: 
+    affiliation: Universität Passau
+    orcid: 
+  - given-names: Aditya V
+    family-names: Handrale
+    email: 
+    affiliation: Universität Passau
+    orcid: 
+  - given-names: Seif E
+    family-names: Idani
+    email: 
+    affiliation: Universität Passau
+    orcid: 
+title: "Image Segmentation"
+version: 1.0.0
+date-released: 
+url: "https://github.com/SalimFares4/Image-Segmentation.git"
