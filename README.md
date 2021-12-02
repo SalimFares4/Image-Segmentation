@@ -1,4 +1,4 @@
-# New project is created to help as track the progress of our work
+# New project is created to help us track the progress of our work
 
 ## In the issues section you'll find all the tasks we have so far,  
 ### 1. Choose one, assign it to yourself
