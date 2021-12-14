@@ -236,19 +236,20 @@ averaged over all classes.
 \section{Data Acquisition \& Pre-Processing}
 \subsection{Data acquisition}
  In our paper, we are using data from HiRise (High Resolution Imaging Science Experiment) camera, onboard the Mars Reconnaissance Orbiter (MRO) spacecraft. We have the DEM (Digital elevation model) of the ‘Firsoff‘ crater, which is an impact crater on mars. Two high resolution images of a specific area on the ground are taken from different camera angles, and then these stereo images are combined together to obtain a DTM (Digital Terrain Model). The photos were taken at an altitude of 272 kilometers above ground. The scale of the image is very high in resolution at 0.27 meter per pixel. This data has been made publicly available by NASA/JPL/ University of Arizona. 
- We decided to utilize a DEM format, since it is a three dimensional digital representation of a terrain with x,y and z coordinates. The Z coordinate (Elevation data) will help us find natural morphologies on the surface like mounds, craters and channels. We can use DEMs to generate additional features by performing slope and aspect analysis. The use of DEMs also allows us to build 3D models of the surface. Moreover the distance between the sample points (spatial resolution) and the vertical resolution are very high in the HiRise DEM.
+ We decided to utilize a DEM format, since it is a three dimensional digital representation of a terrain with X,Y and Z coordinates. The Z coordinate (Elevation data) will help us find natural morphologies on the surface like mounds, craters and channels. We can use DEMs to generate additional features by performing slope and aspect analysis. The use of DEMs also allows us to build 3D models of the surface. Moreover the distance between the sample points (spatial resolution) and the vertical resolution are very high in the HiRise DEM.
 
 \subsection{Data preprocessing}
 The first step in preprocessing was to fill in the No Data values. A no data value is present in the dataset when there is no depth reading available at that coordinate. This usually represents things such as backgrounds and borders, but also occurs when data is not available due to technical difficulties etc. 
 
 There are a few methods that can be used to treat the NoData values. We chose to perform automatic interpolation using the ‘fillnodata’ method from the python package ‘rasterio’\footnote{\url{https://rasterio.readthedocs.io/en/latest/api/rasterio.fill.html}}. Manual interpolation is also possible, but requires expertise in domain. Sometimes interpolation can also cause geometric patterns and artifacts in the image which end up adding noise to our dataset.
 
-The rasterio interpolation we used has two tunable parameters, Max\_search\_distance and smoothing\_iterations. Max\_search\_distance corresponds to the maximum number of pixels to search in all directions to find values to interpolate from (using inverse distance weighting). The smoothing\_iterations refers to the number of 3x3 average filters (passes to run on interpolated pixels) are applied to smooth out artifacts. We used a value of 35 for the max\_search\_distance and a value of 0 for the smoothing iterations
+The rasterio interpolation we used has two tunable parameters, Max\_search\_distance and smoothing\_iterations. Max\_search\_distance corresponds to the maximum number of pixels to search in all directions to find values to interpolate from (using inverse distance weighting). The smoothing\_iterations refers to the number of 3x3 average filters (passes to run on interpolated pixels) are applied to smooth out artifacts. We used a value of 35 for the max\_search\_distance and a value of 0 for the smoothing iterations.
 
-After the interpolating the missing values, we obtain a proper DEM with no missing values. The DEM file is now ready for the tiling process.
+After interpolating the missing values, we obtain a proper DEM with no missing values. The DEM file is now ready for the tiling process.
 \begin{figure}[ht]
     \centering
     \subfloat[Interpolation][Interpolation]{
+    \hspace*{-0.5cm}
         \includegraphics[width=0.45\textwidth]{images/Interpolation.png}\label{fig:Interpolation}
     }
     \caption{Filling NoData Values Using Interpolation}
@@ -262,19 +263,90 @@ Adding channels or features to our data will help the segmentation neural networ
 \begin{figure}[ht]
     \centering
     \subfloat[Feature Extraction][Feature Extraction]{
+    \hspace*{-0.4cm}
         \includegraphics[width=0.5\textwidth]{images/Feature Extraction.png}\label{fig:Feature Extraction}
     }
     \caption{Variations of Features}
 \end{figure}
-Since the dataset is very small and consists of only one image, we decided to tile the image into N x M parts. Tiling will allow us to have multiple training samples, which inturn will improve the performance of our neural network. All of the morphologies to be detected have a polynomial, amoeba-like shape. There arise a few problems when using tiling, ex. A tile border can cut through a morphology, giving it a linear edge where there is none. Since we will also be tiling the testing data set, this should not be a problem.
 
+Since the dataset is very small and consists of only one image, we decided to tile the image into XDIV x YDIV parts. Tiling will allow us to have multiple training samples, which in turn will improve the performance of our neural network. All of the morphologies to be detected have a polynomial, amoeba-like shape. There arise a few problems when using tiling, ex. A tile border can cut through a morphology, giving it a linear edge where there is none. Since we will also be tiling the testing data set, this should not be a problem.
+\hspace*{-0.4cm}
 Tiling Pseudocode
-Divide the training image into N rows and  M columns
-Obtain N x M number of square shaped training tiles
-Divide the testing image into N rows and  M columns
-Obtain N x M number of square shaped testing tiles
+\begin{itemize}
+    \item Find the top-left corner of the image which has the lowest x-coordinate and the highest y-coordinate using gdal.GetGeoTransform.
+    (xmin, ymax) = (gdal.GetGeoTransform()[0],gdal.GetGeoTransform()[3])
+    \item Get the size of the raster image using which is the length of the coordination axis multiplied by the respected pixel size:
+    \begin{itemize}
+        \item xlen = xres * gdal.RasterXSize; xres = gdal.GetGeoTransform()[1]
+        \item ylen = yres * gdal.RasterYSize; yres = gdal.GetGeoTransform()[5]
+    \end{itemize}
+    \item Define the number of divisions on each axis. (xdiv, ydiv)
+    \item The size of your tile would be:
+     \begin{itemize}
+        \item xsize = xlen/xdiv
+        \item ysize = ylen/ydiv
+    \end{itemize}
+    \item Define the strides(steps) of tiling
+    \begin{itemize}
+        \item xsteps = [xmin + xsize * i for i in range(xdiv+1)]
+        \item ysteps = [ymax - ysize * i for i in range(ydiv+1)]
+    \end{itemize}
+    \item Finally using gdal.Warp for each step in the steps vectors, pass:
+    \begin{itemize}
+        \item The wanted name of the output.
+        \item The input DEM.
+        \item outputBounds=(xsteps[i], ysteps[i], xsteps[i+1], ysteps[i+1]
+    \end{itemize}
+\end{itemize}
+\begin{figure}[ht]
+    \centering
+    \subfloat[original dem][Original DEM]{
+    \hspace*{-0.5cm}
+        \includegraphics[width=0.2\textwidth]{images/Original_DEM.png}\label{fig:Original DEM}
+    }
+    \subfloat[tiles][Tiles]{
+        \includegraphics[width=0.2\textwidth]{images/Tiles.png}\label{fig:Tiles}
+    }
+    \caption{Tiling}
+\end{figure}
+\subsection{Annotation}
+To annotate our dataset we need to extract the mounds from our DEM using the shape file that describe the mounds. 
+We use the geopandas.read\_file()\footnote{\url{https://geopandas.org/en/stable/docs/reference/api/geopandas.read_file.html}} to read the shape file. We reproject the labels coordinate system to that of the original DEM which is stored in the ‘meta’ field of the DEM data.
+
+\begin{figure}[ht]
+    \centering
+    \subfloat[mound 1][Mound 1]{
+        \includegraphics[width=0.2\textwidth]{images/Mound1.png}\label{fig:Mound 1}
+    }
+    \subfloat[mound 2][Mound 2]{
+        \includegraphics[width=0.2\textwidth]{images/Mound2.png}\label{fig:Mound 2}
+    }
+    \newline
+    \subfloat[mound 3][Mound 3]{
+        \includegraphics[width=0.2\textwidth]{images/Mound3.png}\label{fig:Mound 3}
+    }
+    \caption{Mounds}
+\end{figure}
+
+We mask the labels using rasterio.mask.mask()\footnote{\url{https://rasterio.readthedocs.io/en/latest/api/rasterio.mask.html}}, which takes the dataset, the geometry of the mounds (stored in the shape file) and the noDataValue of the DEM. 
+\begin{figure}[ht]
+    \centering
+    \subfloat[annotated image][Annotated Image]{
+        \includegraphics[width=0.5\textwidth]{images/Annotated.png}\label{fig:Annotated Image}
+    }
+    \caption{Annotated Image}
+\end{figure}
+\newline
+\newline
+The annotations would be:
+\begin{itemize}
+    \item ‘0’ For non-mounds points.
+    \item ‘1’ For mounds points.
+    \item ‘2’ For the invalid data.
+\end{itemize}
 
 
+\newpage
 \printbibliography{}
 \appendix
 \section{Phase Contribution}
